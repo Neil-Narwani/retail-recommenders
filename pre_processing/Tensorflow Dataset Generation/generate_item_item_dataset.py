@@ -1,6 +1,7 @@
 from ast import Mult
 import collections
 from enum import unique
+from re import T
 import pandas as pd
 import tensorflow as tf
 from sqlalchemy import create_engine
@@ -10,13 +11,14 @@ import random
 import os
 from fixstring import fix_string
 
-output_dir = '../data/samples'
+output_dir = '../../data/samples'
 min_timeline_length = 3
 max_context_length = 10
 train_data_fraction = 0.8
-OUTPUT_TRAINING_DATA_FILENAME = "train_transactions_gt2018.tfrecord"
-OUTPUT_TESTING_DATA_FILENAME = "test_transactions_gt2018.tfrecord"
+OUTPUT_TRAINING_DATA_FILENAME = "train_transactions.tfrecord"
+OUTPUT_TESTING_DATA_FILENAME = "test_transactions.tfrecord"
 OUTPUT_ITEMDATA_FILENAME = "items.tfrecord"
+OUTPUT_DEPT_FILENAME= 'departments.tfrecord'
 
 class TransactionInfo(
     collections.namedtuple("TransactionInfo", 
@@ -40,7 +42,14 @@ class ItemInfo(collections.namedtuple("ItemInfo", ["item_id", "description", "fu
   def __new__(cls, item_id=0, description='', fullprice=0.0):
     return super(ItemInfo, cls).__new__(cls, item_id, description, fullprice)
 
-def read_data(sqlconn): 
+class DepartmentInfo(collections.namedtuple("DepartmentInfo", ["dept_id", "dept_name"])):
+  """Data holder of basic department information"""
+  __slots__ = ()
+
+  def __new__(cls, dept_id=0, dept_name=''):
+    return super(DepartmentInfo, cls).__new__(cls, dept_id, dept_name)
+
+def read_data(sqlconn, startdate): 
     print('Load duplicate customer map')
     entity_map_query = r"""
       select id as CustomerID, canon_id as CanonID from entity_map where cluster_score > 0.97;"""
@@ -51,7 +60,7 @@ def read_data(sqlconn):
         transactionentry.ID,CustomerID, ItemID, TransactionTime, Quantity, Price, 
         FullPrice, DepartmentID, DiscountID, ReturnID
       from transactionentry 
-      where TransactionTime > '2018-01-01 00:00:00';
+      where TransactionTime > '{startdate}';
       """
     transactions_df = pd.read_sql(query, sqlconn)
     print('Add timestamps')
@@ -62,12 +71,14 @@ def read_data(sqlconn):
     transactions_df['CustomerID'] = transactions_df['CanonID'].fillna(transactions_df['CustomerID'])
     transactions_df.drop('CanonID', inplace=True, axis=1)
     print('Query items')
-    items_df = pd.read_sql("""
+    items_df = pd.read_sql(f"""
       select item.ID as ID, Description, FullPrice 
         from Item 
-        where item.ID in (select distinct ItemID from transactionentry where TransactionTime > '2018-01-01 00:00:00') limit 25000;""", sqlconn)
-
-    return transactions_df, items_df
+        where item.ID in (select distinct ItemID from transactionentry where TransactionTime > '{startdate}') limit 25000;""", sqlconn)
+    department_df = pd.read_sql("""
+      select id, departmentname from department;
+    """, sqlconn)
+    return transactions_df, items_df, department_df
 
 
 def convert_to_timelines(transactions_df):
@@ -175,6 +186,18 @@ def generate_item_vocab(items_dict):
       items.append(tf_example)
     return items
 
+def generate_dept_vocab(department_df):
+  departments = []
+  for _, dept in department_df.iterrows():
+    dept_name = tf.compat.as_bytes(fix_string(dept['departmentname']))
+    feature = {
+      "dept_id" : tf.train.Feature(int64_list=tf.train.Int64List(value=[dept['id']])),
+      "dept_name": tf.train.Feature(bytes_list=tf.train.BytesList(value=[dept_name]))
+    }
+    tf_example = tf.train.Example(features=tf.train.Features(feature=feature))
+    departments.append(tf_example)
+  return departments
+
 def generate_examples_from_timelines(timelines,
                                      items_df,
                                      min_timeline_len=3,
@@ -241,13 +264,16 @@ def generate_datasets(sqlconn,
                       output_dir,
                       min_timeline_length,
                       max_context_length,
-                      train_data_fraction=0.9,
+                      start_date,
+                      genauxdata,
+                      train_data_fraction=0.9,                      
                       train_filename=OUTPUT_TRAINING_DATA_FILENAME,
                       test_filename=OUTPUT_TESTING_DATA_FILENAME,
-                      items_filename=OUTPUT_ITEMDATA_FILENAME):
+                      items_filename=OUTPUT_ITEMDATA_FILENAME,
+                      dept_filename=OUTPUT_DEPT_FILENAME):
   """Generates train and test datasets as TFRecord, and returns stats."""
   print("Reading data to dataframes.")
-  transactions_df, items_df = read_data(sqlconn)
+  transactions_df, items_df, department_df = read_data(sqlconn,start_date)
   print("Generating customer purchase histories.")
   timelines, item_counts = convert_to_timelines(transactions_df)
   print("Generating train and test examples.")
@@ -257,9 +283,6 @@ def generate_datasets(sqlconn,
       min_timeline_len=min_timeline_length,
       max_context_len=max_context_length,
       train_data_fraction=train_data_fraction)
-  print('Generating Item data')
-  items_dict = generate_items_dict(items_df)
-  items_set = generate_item_vocab(items_dict=items_dict)
 
   if not tf.io.gfile.exists(output_dir):
     tf.io.gfile.makedirs(output_dir)
@@ -269,9 +292,19 @@ def generate_datasets(sqlconn,
   print("Writing generated testing examples.")
   test_file = os.path.join(output_dir, test_filename)
   test_size = write_tfrecords(tf_examples=test_examples, filename=test_file)
-  print("Writing Item Data")
-  item_file = os.path.join(output_dir, items_filename)
-  items_size = write_tfrecords(tf_examples=items_set, filename=item_file)
+
+  if genauxdata:
+    print('Generating Item data')
+    items_dict = generate_items_dict(items_df)
+    items_set = generate_item_vocab(items_dict=items_dict)
+    print('Genrating Department data')
+    dept_examples = generate_dept_vocab(department_df=department_df)
+    print("Writing Item Data")
+    item_file = os.path.join(output_dir, items_filename)
+    items_size = write_tfrecords(tf_examples=items_set, filename=item_file)
+    print("Writing Department Data")
+    dept_file = os.path.join(output_dir, dept_filename)
+    dept_size = write_tfrecords(tf_examples=dept_examples,filename=dept_file)
 
   stats = {
       "train_size": train_size,
@@ -279,7 +312,9 @@ def generate_datasets(sqlconn,
       "train_file": train_file,
       "test_file": test_file,
       "item_size": items_size,
-      "item_file": item_file
+      "item_file": item_file,
+      "dept_file": dept_file,
+      "dept_size": dept_size
   }
   return stats
 
@@ -288,30 +323,23 @@ def generate_datasets(sqlconn,
 if __name__ == "__main__":
 
   parser = argparse.ArgumentParser(description='Extract customer and transaction data from mySQL db')
-  parser.add_argument('--server', help='Address of mySQL server (default=localhost)')
-  parser.add_argument('--username', help='Username to access server (default=sa)')
+  parser.add_argument('--server', help='Address of mySQL server (default=localhost)', default='localhost')
+  parser.add_argument('--username', help='Username to access server (default=sa)', default='sa')
   parser.add_argument('--password', help='Password to access server (required)', required=True)
-  parser.add_argument('--database', help='Database to access (default=RetailDB)')
-
+  parser.add_argument('--database', help='Database to access (default=RetailDB)', default='RetailDB')
+  parser.add_argument('--startdate',help='Start Date to pull transactions from. format: 2018-01-01 00:00:00', required=True)
+  parser.add_argument('--outputdir', help='Directory to output to (default=../data/samples)', default='../data/samples')
+  parser.add_argument('--filepostfix', help='String to add to filenames generated (default=None)', default=None)
+  parser.add_argument('--nogenauxdata', help='Skip Generating item and dept data', action='store_false', default=True)
   args = parser.parse_args()
-
-  if args.database is None:
-    database = 'RetailDB'
-  else:
-    database = args.database
-    
-  if args.username is None:
-    username = 'sa'
-  else:
-    username = args.username
-
-  if args.server is None:
-    server = 'localhost'
-  else:
-    server = args.server
+ 
+  if args.filepostfix is not None:
+    OUTPUT_TRAINING_DATA_FILENAME = "train_transactions" + args.filepostfix + ".tfrecord"
+    OUTPUT_TESTING_DATA_FILENAME = "test_transactions" + args.filepostfix + ".tfrecord"
+  
 
   print('Connect to Database...')
-  connect_str = 'mysql+mysqlconnector://' + username + ':' + args.password + '@' + server +'/' + database
+  connect_str = 'mysql+mysqlconnector://' + args.username + ':' + args.password + '@' + args.server +'/' + args.database
   alchemy_engine = create_engine(connect_str)
   sqlconn = alchemy_engine.connect()
   print('Generating Datasets...')
@@ -320,6 +348,8 @@ if __name__ == "__main__":
       min_timeline_length=min_timeline_length,
       max_context_length=max_context_length,
       train_data_fraction=train_data_fraction,
+      start_date=str(args.startdate),
+      genauxdata=args.nogenauxdata
   )
   print(f"Generated dataset: {stats}")
 
