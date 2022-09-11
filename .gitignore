@@ -132,4 +132,4 @@ dmypy.json
 data/**
 # log directories
 logs/**
-
+.DS_STORE

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, url_for
 from os import environ
 from flask_sqlalchemy import SQLAlchemy
 import numpy as np
@@ -13,7 +13,7 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-items_df = pd.read_csv('./data/items2500.csv')
+items_df = pd.read_csv('./data/csv/web_items.csv', header=0)
 recommender_model = tf.saved_model.load('./data/saved_model')
 
 DESCRIPTION_TOTAL = len(items_df.index)
@@ -54,16 +54,47 @@ def recommend():
     results = "<p>No Recommendations Generated</p>"
     if request.method == "POST":
         products=request.json['products']
-        print(products)
+
         idlist = [str(x['id']) for index,x in enumerate(products) if index < 10]
+
         idlist = idlist + ['']*(10 - len(idlist))
+
         idlist_tf = tf.constant(idlist,shape=(1,10,1))
+
         _, recommends = recommender_model(idlist_tf)
+
         recommends_list = recommends.numpy().flatten().tolist()
-        results = '<p>Header Here</p>'
-        for recommend in recommends_list:
-            results = results +  f"<p>{recommend.decode('utf-8')}</p>"            
-    return jsonify(results)
+
+        recommends_list = [int(x.decode('utf-8')) for x in recommends_list]
+
+        print(recommends_list)
+
+        results = '''<h2> Recommendations :  </h2>
+        <table class="table" id="recommendationTable">
+          <thead>
+            <tr>
+              <th scope="col">Item ID</th>
+              <th scope="col">Description</th>
+              <th scope="col">Price</th>
+            </tr>
+          </thead>
+          <tbody>'''
+
+        for recommendation in recommends_list:
+            currentItem = items_df.loc[items_df['id']==recommendation]
+            print(currentItem.id.values)
+            print(currentItem.description.values)
+
+            results = results + f'''    <tr>
+              <td>{ currentItem.id.values }</td>
+              <td>{ currentItem.description.values }</td>
+              <td>{ currentItem.price.values }</td>
+              <td><button class="btn btn-danger my-cart-btn" data-id="{currentItem.id.values}" data-name="{currentItem.description.values}" data-summary="summary 2" 
+              data-price="{currentItem.price.values}" data-quantity="1" data-image="{url_for('static', filename='img/add.png')}">Add to Cart</button></td>
+            </tr>'''
+        results = results + '</tbody> </table>'
+
+        return jsonify(results)
 
 @app.route('/checkout', methods=['POST'])
 def checkout():
