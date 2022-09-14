@@ -1,0 +1,61 @@
+experiments:
+ - name: experiment_0
+   epochs: 20
+   learning_rate: 0.1
+   deep_layers: 
+ - name: experiment_1
+   epochs: 12
+   learning_rate: 0.1
+   deep_layers: 
+      - 128
+      - 64
+      - 32
+ - name: experiment_2
+   epochs: 24
+   learning_rate: 0.1
+   deep_layers: 
+      - 128
+      - 64
+      - 32
+ - name: experiment_3
+   epochs: 36
+   learning_rate: 0.1
+   deep_layers: 
+      - 128
+      - 64
+      - 32
+ - name: experiment_4
+   epochs: 48
+   learning_rate: 0.1
+   deep_layers: 
+      - 128
+      - 64
+      - 32
+ - name: experiment_5
+   epochs: 12
+   learning_rate: 0.1
+   deep_layers: 
+      - 96
+      - 64
+      - 32
+ - name: experiment_6
+   epochs: 24
+   learning_rate: 0.1
+   deep_layers: 
+      - 96
+      - 64
+      - 32
+ - name: experiment_7
+   epochs: 36
+   learning_rate: 0.1
+   deep_layers: 
+      - 96
+      - 64
+      - 32
+ - name: experiment_8
+   epochs: 48
+   learning_rate: 0.1
+   deep_layers: 
+      - 96
+      - 64
+      - 32
