@@ -1,6 +1,4 @@
 import os
-import pprint
-import tempfile
 import datetime
 from typing import Dict, Text
 
@@ -16,6 +14,9 @@ train = tf.data.TFRecordDataset(train_filename)
 
 test_filename = "../data/samples/test_transactions.tfrecord"
 test = tf.data.TFRecordDataset(test_filename)
+
+validation_filename = "../data/samples/validation_transactions.tfrecord"
+validation = tf.data.TFRecordDataset(validation_filename)
 
 items_filename = "../data/samples/items.tfrecord"
 items_tf = tf.data.TFRecordDataset(items_filename)
@@ -44,6 +45,7 @@ train_ds = train.map(_parse_function).map(_map_function)
 test_ds = test.map(_parse_function).map(_map_function)
 cached_train = train_ds.shuffle(10_000).batch(12800).cache()
 cached_test = test_ds.batch(2560).cache()
+cached_validation = validation.map(_parse_function).map(_map_function).batch(1280).cache()
 
 item_feature_description = {
     'item_id': tf.io.FixedLenFeature([1], tf.int64, default_value=0),
@@ -161,21 +163,21 @@ class RetrievalModel(tfrs.Model):
 
         return self._task(query_embedding, candidate_embedding, compute_metrics=not training)
 
-
 if __name__ == "__main__":
-    with open('experiment_config.yaml', 'r') as stream:
+    with open('test_experiment.yml', 'r') as stream:
         config = yaml.safe_load(stream)
 
     run_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     log_base = f"../logs/{run_time}"
 
     for experiment in config['experiments']:
-        # log_dir = os.path.join(log_base, experiment['name'])
+        log_dir = os.path.join(log_base, experiment['name'])
         # tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
         model = RetrievalModel(experiment['deep_layers'])
         model.compile(optimizer=tf.keras.optimizers.Adagrad(learning_rate=experiment['learning_rate']))
-        # experiment['history'] = model.fit(cached_train, epochs=experiment['epochs', callbacks=[tensorboard_callback]])
-        experiment['history'] = model.fit(cached_train, epochs=experiment['epochs'])
+        # history = model.fit(cached_train, epochs=experiment['epochs'], callbacks=[tensorboard_callback], validation_data=cached_validation)
+        history = model.fit(cached_train, epochs=experiment['epochs'], validation_data=cached_validation)
+        experiment['history'] = history.history
         experiment['evaluation'] = model.evaluate(cached_test, return_dict=True)
 
 

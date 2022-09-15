@@ -14,11 +14,12 @@ from fixstring import fix_string
 output_dir = '../../data/samples'
 min_timeline_length = 3
 max_context_length = 10
-train_data_fraction = 0.8
+data_fractions = [ 0.7, 0.2, 0.1 ] 
 OUTPUT_TRAINING_DATA_FILENAME = "train_transactions.tfrecord"
 OUTPUT_TESTING_DATA_FILENAME = "test_transactions.tfrecord"
 OUTPUT_ITEMDATA_FILENAME = "items.tfrecord"
-OUTPUT_DEPT_FILENAME= 'departments.tfrecord'
+OUTPUT_DEPT_FILENAME= "departments.tfrecord"
+OUTPUT_VALIDATION_FILENAME = "valdation_transactions.tfrecord"
 
 class TransactionInfo(
     collections.namedtuple("TransactionInfo", 
@@ -199,10 +200,9 @@ def generate_dept_vocab(department_df):
   return departments
 
 def generate_examples_from_timelines(timelines,
-                                     items_df,
                                      min_timeline_len=3,
                                      max_context_len=100,
-                                     train_data_fraction=0.9,
+                                     train_data_fractions=[0.7, 0.2, 0.1],
                                      random_seed=None,
                                      shuffle=True):
   """Convert user timelines to tf examples.
@@ -243,11 +243,13 @@ def generate_examples_from_timelines(timelines,
   if shuffle:
     random.seed(random_seed)
     random.shuffle(examples)
-  last_train_index = round(len(examples) * train_data_fraction)
+  last_train_index = round(len(examples) * train_data_fractions[0])
+  next_train_index = round(len(examples) * (train_data_fractions[0]+train_data_fractions[1]))
 
   train_examples = examples[:last_train_index]
-  test_examples = examples[last_train_index:]
-  return train_examples, test_examples
+  test_examples = examples[last_train_index:next_train_index]
+  validation_examples = examples[next_train_index:]
+  return train_examples, test_examples, validation_examples
 
 def write_tfrecords(tf_examples, filename):
   """Writes tf examples to tfrecord file, and returns the count."""
@@ -266,10 +268,11 @@ def generate_datasets(sqlconn,
                       max_context_length,
                       start_date,
                       genauxdata,
-                      train_data_fraction=0.9,                      
+                      train_data_fractions=[0.7, 0.2, 0.1],                      
                       train_filename=OUTPUT_TRAINING_DATA_FILENAME,
                       test_filename=OUTPUT_TESTING_DATA_FILENAME,
                       items_filename=OUTPUT_ITEMDATA_FILENAME,
+                      validation_filename=OUTPUT_VALIDATION_FILENAME,
                       dept_filename=OUTPUT_DEPT_FILENAME):
   """Generates train and test datasets as TFRecord, and returns stats."""
   print("Reading data to dataframes.")
@@ -277,12 +280,11 @@ def generate_datasets(sqlconn,
   print("Generating customer purchase histories.")
   timelines, item_counts = convert_to_timelines(transactions_df)
   print("Generating train and test examples.")
-  train_examples, test_examples = generate_examples_from_timelines(
+  train_examples, test_examples, validation_examples = generate_examples_from_timelines(
       timelines=timelines,
-      items_df=items_df,
       min_timeline_len=min_timeline_length,
       max_context_len=max_context_length,
-      train_data_fraction=train_data_fraction)
+      train_data_fractions=train_data_fractions)
 
   if not tf.io.gfile.exists(output_dir):
     tf.io.gfile.makedirs(output_dir)
@@ -292,6 +294,14 @@ def generate_datasets(sqlconn,
   print("Writing generated testing examples.")
   test_file = os.path.join(output_dir, test_filename)
   test_size = write_tfrecords(tf_examples=test_examples, filename=test_file)
+  print("Writing generated validation examples.")
+  validation_file = os.path.join(output_dir, validation_filename)
+  validation_size = write_tfrecords(tf_examples=validation_examples, filename=validation_file)
+
+  items_file = None
+  items_size = None
+  dept_file = None
+  dept_size = None
 
   if genauxdata:
     print('Generating Item data')
@@ -300,8 +310,8 @@ def generate_datasets(sqlconn,
     print('Genrating Department data')
     dept_examples = generate_dept_vocab(department_df=department_df)
     print("Writing Item Data")
-    item_file = os.path.join(output_dir, items_filename)
-    items_size = write_tfrecords(tf_examples=items_set, filename=item_file)
+    items_file = os.path.join(output_dir, items_filename)
+    items_size = write_tfrecords(tf_examples=items_set, filename=items_file)
     print("Writing Department Data")
     dept_file = os.path.join(output_dir, dept_filename)
     dept_size = write_tfrecords(tf_examples=dept_examples,filename=dept_file)
@@ -311,8 +321,10 @@ def generate_datasets(sqlconn,
       "test_size": test_size,
       "train_file": train_file,
       "test_file": test_file,
+      "validation_file": validation_file,
+      "validation_size": validation_size,
       "item_size": items_size,
-      "item_file": item_file,
+      "item_file": items_file,
       "dept_file": dept_file,
       "dept_size": dept_size
   }
@@ -336,6 +348,7 @@ if __name__ == "__main__":
   if args.filepostfix is not None:
     OUTPUT_TRAINING_DATA_FILENAME = "train_transactions" + args.filepostfix + ".tfrecord"
     OUTPUT_TESTING_DATA_FILENAME = "test_transactions" + args.filepostfix + ".tfrecord"
+    OUTPUT_VALIDATION_FILENAME = "validation_transactions" + args.filepostfix + ".tfrecord"
   
 
   print('Connect to Database...')
@@ -347,7 +360,7 @@ if __name__ == "__main__":
       output_dir=output_dir,
       min_timeline_length=min_timeline_length,
       max_context_length=max_context_length,
-      train_data_fraction=train_data_fraction,
+      train_data_fractions=data_fractions,
       start_date=str(args.startdate),
       genauxdata=args.nogenauxdata
   )
