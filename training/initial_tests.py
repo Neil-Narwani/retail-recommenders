@@ -164,7 +164,7 @@ class RetrievalModel(tfrs.Model):
         return self._task(query_embedding, candidate_embedding, compute_metrics=not training)
 
 if __name__ == "__main__":
-    with open('test_experiment.yml', 'r') as stream:
+    with open('experiment_config.yaml', 'r') as stream:
         config = yaml.safe_load(stream)
 
     run_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -182,5 +182,5 @@ if __name__ == "__main__":
 
 
     output_file = os.path.join(log_base, 'results.yaml')
-    with open('../logs/model_results.yaml', 'w') as stream:
+    with open('../logs/initial_tests_results.yaml', 'w') as stream:
       yaml.dump(config, stream)

@@ -19,7 +19,7 @@ OUTPUT_TRAINING_DATA_FILENAME = "train_transactions.tfrecord"
 OUTPUT_TESTING_DATA_FILENAME = "test_transactions.tfrecord"
 OUTPUT_ITEMDATA_FILENAME = "items.tfrecord"
 OUTPUT_DEPT_FILENAME= "departments.tfrecord"
-OUTPUT_VALIDATION_FILENAME = "valdation_transactions.tfrecord"
+OUTPUT_VALIDATION_FILENAME = "validation_transactions.tfrecord"
 
 class TransactionInfo(
     collections.namedtuple("TransactionInfo", 

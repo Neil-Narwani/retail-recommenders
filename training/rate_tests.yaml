@@ -1,0 +1,31 @@
+experiments:
+ - name: rate_test1
+   epochs: 75
+   learning_rate: 0.1
+   deep_layers: 
+     - 64
+     - 32
+ - name: rate_test2
+   epochs: 75
+   learning_rate: 0.08
+   deep_layers: 
+      - 64
+      - 32
+ - name: rate_test3
+   epochs: 75
+   learning_rate: 0.09
+   deep_layers: 
+      - 64
+      - 32
+ - name: rate_test4
+   epochs: 75
+   learning_rate: 0.11
+   deep_layers: 
+      - 64
+      - 32
+ - name: rate_test5
+   epochs: 75
+   learning_rate: 0.12
+   deep_layers: 
+      - 64
+      - 32
