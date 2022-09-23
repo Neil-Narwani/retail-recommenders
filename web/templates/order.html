@@ -145,14 +145,18 @@
 <table class="table">
   <thead>
     <tr>
+      <th scope="col">Department</th>
       <th scope="col">Description</th>
+      <th scope="col">Price</th>
     </tr>
   </thead>
   <tbody>
     {% for index, row in items.iterrows(): %}
     <tr>
+      <td>{{ row[4] }}</td>
       <td>{{ row[2] }}</td>
-      <td><button class="btn btn-danger my-cart-btn" data-id="{{row[0]}}" data-name="{{row[1]}}" data-summary="summary 2" data-price="20" data-quantity="1" data-image="{{url_for('static', filename='img/add.png')}}">Add to Cart</button></td>
+      <td>{{ row[3] }}</td>
+      <td><button class="btn btn-danger my-cart-btn" data-id="{{row[0]}}" data-name="{{row[2]}}" data-summary="{{row[2]}}" data-price="{{row[3]}}" data-quantity="1" data-image="{{url_for('static', filename='img/add.png')}}">Add to Cart</button></td>
     </tr>
     {% endfor %}
   </tbody>
