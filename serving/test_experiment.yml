@@ -1,0 +1,5 @@
+experiments:
+ - name: experiment_0
+   epochs: 1
+   learning_rate: 0.1
+   deep_layers: [32]
