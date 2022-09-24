@@ -15,6 +15,7 @@ def index():
     return render_template('index.html')
 
 items_df = pd.read_csv('./data/web_items.csv', header=0).sort_values(['department_id','description'], axis=0)
+items_df = items_df[items_df['department_id']>600]
 depts_df = pd.read_csv('./data/web_departments.csv', header=0)
 depts_df = depts_df.rename(columns={'id':'department_id'})
 items_df = items_df.merge(depts_df, on='department_id', how='left')
@@ -27,30 +28,7 @@ USERS_PER_PAGE = 10
 @app.route('/order/<offset>', defaults={ 'limit' : USERS_PER_PAGE }, methods=['GET'] )
 @app.route('/order/<offset>/<limit>', methods=['GET'] )
 def order(offset, limit):
-    try:
-        offset = int( offset )
-    except ValueError:
-        offset = 0
-    
-    try:
-        limit = int( limit )
-    except:
-        limit = USERS_PER_PAGE
-    
-    # ensure offset & limit aren't negative
-    offset = offset if offset > 0 else 1 
-    limit = limit if limit > 0 else USERS_PER_PAGE
-        
-    if DESCRIPTION_TOTAL <= offset:
-       return redirect( f'/order/{DESCRIPTION_TOTAL - limit}/{limit}' )
-    
-    pages = { 'begin' : 0 };
-    pages[ 'prev' ] = max( offset - limit, 0 ) # don't want a negative index!
-    pages[ 'current' ] = min( max( 0, offset ), DESCRIPTION_TOTAL ) # gotta be in range!
-    pages[ 'next' ] = min( offset + limit, DESCRIPTION_TOTAL - limit ) # don't want to go over
-    pages[ 'end' ] = DESCRIPTION_TOTAL - limit # just get the end.    
-    items = items_df[offset:offset+limit]
-    return render_template('order.html', items=items, pages=pages, limit=limit)
+    return render_template('order.html', items=items_df)
     
 @app.route('/recommend', methods=['POST'])
 def recommend():

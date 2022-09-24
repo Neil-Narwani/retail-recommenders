@@ -18,9 +18,6 @@
 
 {% block scripts %}
 
-
-<script src="{{url_for('static', filename='js/jquery-2.2.3.min.js')}}"></script>
-<script src="{{url_for('static', filename='js/bootstrap.min.js')}}"></script>
 <script src="{{url_for('static', filename='js/jquery.mycart.js')}}"></script>
 <script type="text/javascript">
   $(
@@ -51,12 +48,12 @@
         clickOnAddToCart: function($addTocart){
           goToCartIcon($addTocart);
         },
-        afterAddOnCart: function(products, totalPrice, totalQuantity) {
-          console.log("afterAddOnCart", products, totalPrice, totalQuantity);
-        },
-        clickOnCartIcon: function($cartIcon, products, totalPrice, totalQuantity) {
-          console.log("cart icon clicked", $cartIcon, products, totalPrice, totalQuantity);
-        },
+        //afterAddOnCart: function(products, totalPrice, totalQuantity) {
+        //  console.log("afterAddOnCart", products, totalPrice, totalQuantity);
+        //},
+        //clickOnCartIcon: function($cartIcon, products, totalPrice, totalQuantity) {
+        //  console.log("cart icon clicked", $cartIcon, products, totalPrice, totalQuantity);
+        //},
         recommendCart: function(products, totalPrice, totalQuantity) {
           $.ajax({
             type: "POST",
@@ -65,7 +62,6 @@
             data: JSON.stringify({products: products}),
             success: function (data) {
                 var myDiv = document.getElementById("showresults");
-                console.log(data)
                 myDiv.innerHTML = data
             },
             dataType: "json"
@@ -91,16 +87,16 @@
           $.each(products, function(){
             checkoutString += ("\n " + this.id + " \t " + this.name + " \t " + this.summary + " \t " + this.price + " \t " + this.quantity + " \t " + this.image);
           });
-          alert(checkoutString)
-          console.log("checking out", products, totalPrice, totalQuantity);
         },
         getDiscountPrice: function(products, totalPrice, totalQuantity) {
-          console.log("calculating discount", products, totalPrice, totalQuantity);
           return totalPrice * 0.5;
         }
       };
       $(".my-cart-btn").myCart(options);
   });
+</script>
+<script type="text/javascript">
+    $(document).ready( function () { $('#itemsTable').DataTable();} );
 </script>
 {% endblock %}
 
@@ -109,45 +105,18 @@
 <p>Create custom orders and get item recommendations based off of your order.</p>
 
 <h2>Select Items to Order</h2>
+
 <div style="float: right; cursor: pointer;">
   <span class="bi-cart my-cart-icon"><span class="badge badge-notify my-cart-badge"></span></span>
 </div>
-{% if pages %}
-<nav aria-label="Page navigation example">
-  <ul class="pagination">
-    <li class="page-item">
-      <a class="page-link" href="/order/{{ pages.begin }}/{{limit}}">
-        <span aria-hidden="true">&laquo;</span>
-        <span class="sr-only">First</span>
-      </a>
-    </li>
-    <li class="page-item">
-      <a class="page-link" href="/order/{{ pages.prev }}/{{limit}}">
-        <span aria-hidden="true">&lt;</span>
-        <span class="sr-only">Previous</span>
-      </a>
-    </li>
-    <li class="page-item">
-      <a class="page-link" href="/order/{{ pages.next }}/{{limit}}">
-        <span class="sr-only">Next</span>
-        <span aria-hidden="true">&gt;</span>
-      </a>
-    </li>
-    <li class="page-item">
-      <a class="page-link" href="/order/{{ pages.end }}/{{limit}}">
-        <span class="sr-only">Last</span>
-        <span aria-hidden="true">&raquo;</span>
-      </a>
-    </li>
-  </ul>
-</nav> {% endif %}
 
-<table class="table">
+<table class="table" id="itemsTable">
   <thead>
     <tr>
       <th scope="col">Department</th>
       <th scope="col">Description</th>
       <th scope="col">Price</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
@@ -155,23 +124,12 @@
     <tr>
       <td>{{ row[4] }}</td>
       <td>{{ row[2] }}</td>
-      <td>{{ row[3] }}</td>
-      <td><button class="btn btn-danger my-cart-btn" data-id="{{row[0]}}" data-name="{{row[2]}}" data-summary="{{row[2]}}" data-price="{{row[3]}}" data-quantity="1" data-image="{{url_for('static', filename='img/add.png')}}">Add to Cart</button></td>
+      <td>{{ "$%.2f"|format(row[3])  }}</td>
+      <td><button class="btn btn-danger my-cart-btn" data-id="{{row[0]}}" data-name="{{row[2]}}" data-summary="{{row[2]}}" data-price="{{row[3]}}" 
+        data-quantity="1" data-image="{{url_for('static', filename='img/add.png')}}">Add to Cart</button></td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
 <div id="showresults" />
-<!-- <td>
-<table class="table">
-  <thead>
-    <tr>
-      <th scope="col">Your Cart</th>
-    </tr>
-  </thead>
-  <tbody>
-  </tbody>
-</table>
-</td> -->
-
 {% endblock %}

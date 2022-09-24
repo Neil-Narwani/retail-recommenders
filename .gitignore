@@ -130,6 +130,8 @@ dmypy.json
 
 # Data Directories
 data/**
+web/data/**
 # log directories
 logs/**
 .DS_STORE
+

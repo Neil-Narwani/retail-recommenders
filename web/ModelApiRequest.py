@@ -3,7 +3,7 @@ import itertools
 
 class ModelApiRequest:
     def __init__(self):
-        self.url='http://ec2-3-94-210-245.compute-1.amazonaws.com:8501/v1/models/retail:predict'
+        self.url='http://ec2-107-23-121-67.compute-1.amazonaws.com:8501/v1/models/retail:predict'
         self.querydict = {
             'signature_name': 'serving_default',
             'inputs': {
