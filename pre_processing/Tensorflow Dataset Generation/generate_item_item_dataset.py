@@ -342,7 +342,7 @@ if __name__ == "__main__":
   parser.add_argument('--startdate',help='Start Date to pull transactions from. format: 2018-01-01 00:00:00', required=True)
   parser.add_argument('--outputdir', help='Directory to output to (default=../data/samples)', default='../data/samples')
   parser.add_argument('--filepostfix', help='String to add to filenames generated (default=None)', default=None)
-  parser.add_argument('--nogenauxdata', help='Skip Generating item and dept data', action='store_false', default=True)
+  parser.add_argument('--nogenvocabs', help='Skip Generating item and dept data', action='store_false', default=True)
   args = parser.parse_args()
  
   if args.filepostfix is not None:
@@ -362,7 +362,7 @@ if __name__ == "__main__":
       max_context_length=max_context_length,
       train_data_fractions=data_fractions,
       start_date=str(args.startdate),
-      genauxdata=args.nogenauxdata
+      genauxdata=args.nogenvocabs
   )
   print(f"Generated dataset: {stats}")
 
