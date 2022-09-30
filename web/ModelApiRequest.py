@@ -8,18 +8,15 @@ class ModelApiRequest:
             'signature_name': 'serving_default',
             'inputs': {
                 "context_item_id": [[]],
-                "context_item_price": [[]],
                 "context_item_department_id": [[]]
             }
         }
 
     def Predict(self, item_ids, item_prices, item_departments):
         for x in item_ids:
-            self.querydict['inputs']['context_item_id'][0].append(x)
-        for x in item_prices:
-            self.querydict['inputs']['context_item_price'][0].append(x)
+            self.querydict['inputs']['context_item_id'][0].append([x])
         for x in item_departments:
-            self.querydict['inputs']['context_item_department_id'][0].append(x)
+            self.querydict['inputs']['context_item_department_id'][0].append([x])
 
         response = requests.post(url=self.url, json=self.querydict)
         if response.status_code == 200:
@@ -28,4 +25,6 @@ class ModelApiRequest:
             predictions = list(itertools.chain.from_iterable(output_2[0]))
             return predictions
         else:
-            return None
+            print(response.status_code)
+            print(response.json())
+            return []

@@ -53,15 +53,17 @@ def recommend():
 
         for recommendation in recommends_list:
             currentItem = items_df.loc[items_df['id']==int(recommendation)]
-            print(currentItem.id.values[0])
-            print(currentItem.description.values[0])
-
+            if len(currentItem.price.values) > 0:
+              price = float(currentItem.price.values[0])
+            else:
+              price = 0.0
+            price_str =  "${:,.2f}".format(price)
             results = results + f'''    <tr>
               <td>{ currentItem.id.values[0] }</td>
               <td>{ currentItem.description.values[0] }</td>
-              <td>{ currentItem.price.values[0] }</td>
-              <td><button class="btn btn-danger my-cart-btn" data-id="{currentItem.id.values}" data-name="{currentItem.description.values}" data-summary="summary 2" 
-              data-price="{currentItem.price.values}" data-quantity="1" data-image="{url_for('static', filename='img/add.png')}">Add to Cart</button></td>
+              <td>{ price_str }</td>
+              <td><button class="btn btn-danger my-cart-btn" data-id="{currentItem.id.values[0]}" data-name="{currentItem.description.values[0]}" data-summary="summary 2" 
+              data-price="{currentItem.price.values[0]}" data-quantity="1" data-image="{url_for('static', filename='img/add.png')}">Add to Cart</button></td>
             </tr>'''
         results = results + '</tbody> </table>'
 
