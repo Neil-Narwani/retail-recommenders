@@ -10,10 +10,6 @@ app = Flask(__name__)
 # app.config.from_object('config')
 model = ModelApiRequest()
 
-@app.route('/')
-def index():
-    return render_template('index.html')
-
 items_df = pd.read_csv('./data/web_items.csv', header=0).sort_values(['department_id','description'], axis=0)
 items_df = items_df[items_df['department_id']>600]
 depts_df = pd.read_csv('./data/web_departments.csv', header=0)
@@ -24,9 +20,9 @@ DESCRIPTION_TOTAL = len(items_df.index)
 
 USERS_PER_PAGE = 10
 
-@app.route('/order', defaults={ 'offset' : 0, 'limit' : USERS_PER_PAGE }, methods=['GET'] )
-@app.route('/order/<offset>', defaults={ 'limit' : USERS_PER_PAGE }, methods=['GET'] )
-@app.route('/order/<offset>/<limit>', methods=['GET'] )
+@app.route('/', defaults={ 'offset' : 0, 'limit' : USERS_PER_PAGE }, methods=['GET'] )
+@app.route('/<offset>', defaults={ 'limit' : USERS_PER_PAGE }, methods=['GET'] )
+@app.route('/<offset>/<limit>', methods=['GET'] )
 def order(offset, limit):
     return render_template('order.html', items=items_df)
     
@@ -68,15 +64,3 @@ def recommend():
         results = results + '</tbody> </table>'
 
         return jsonify(results)
-
-@app.route('/checkout', methods=['POST'])
-def checkout():
-    if request.method == "POST":
-        products=request.json['products']
-        print(products)
-    foo = {'redirect' : '/success'}
-    return jsonify(foo)
-    
-@app.route('/success', methods=['Get'])
-def success():
-    return render_template('success.html')

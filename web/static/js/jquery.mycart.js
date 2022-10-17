@@ -233,7 +233,7 @@
         '<div class="modal-footer">' +
         '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>' +
         '<button type="button" class="btn btn-primary ' + classRecommendCart + '">Recommend</button>' +
-        '<button type="button" class="btn btn-primary ' + classCheckoutCart + '">Checkout</button>' +
+        '<button type="button" class="btn btn-primary ' + classCheckoutCart + '">Clear Selections</button>' +
         '</div>' +
         '</div>' +
         '</div>' +

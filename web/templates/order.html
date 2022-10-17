@@ -76,7 +76,7 @@
           $.ajax({
             type: "POST",
             contentType: "application/json; charset=utf-8",
-            url: "/checkout",
+            url: "/",
             data: JSON.stringify({products: products}),
             success: function (data) {
                 window.location.href = data['redirect'];
@@ -101,11 +101,8 @@
 {% endblock %}
 
 {% block content %}
-<h1>Order Creation and Recommendation</h1>
-<p>Create custom orders and get item recommendations based off of your order.</p>
-
-<h2>Select Items to Order</h2>
-
+<h1>Recommendation Model Demo</h1>
+<p>This may take some time to load as it is only a demo website - please be patient.</p>
 <div style="float: right; cursor: pointer;">
   <span class="bi-cart my-cart-icon"><span class="badge badge-notify my-cart-badge"></span></span>
 </div>
@@ -126,10 +123,11 @@
       <td>{{ row[2] }}</td>
       <td>{{ "$%.2f"|format(row[3])  }}</td>
       <td><button class="btn btn-danger my-cart-btn" data-id="{{row[0]}}" data-name="{{row[2]}}" data-summary="{{row[2]}}" data-price="{{row[3]}}" 
-        data-quantity="1" data-image="{{url_for('static', filename='img/add.png')}}">Add to Cart</button></td>
+        data-quantity="1" data-image="{{url_for('static', filename='img/add.png')}}">Add to Test</button></td>
     </tr>
     {% endfor %}
   </tbody>
 </table>
+<h1></h1>
 <div id="showresults" />
 {% endblock %}
