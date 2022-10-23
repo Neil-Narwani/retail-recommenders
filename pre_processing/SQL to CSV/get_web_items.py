@@ -17,7 +17,7 @@ read_con = alchemy_engine.connect()
 
 print('Read Items and Descriptions')
 query = r"""
-        select id, department_id, description, price
+        select id, department_id, brand_code, description, price
         from items_web;
         """
 items = pd.read_sql(query,read_con)
@@ -27,8 +27,16 @@ print('Save Items')
 itemsfile = f'../../data/csv/web_items.csv'
 items.to_csv(itemsfile, header=True, index=False)
 
+print('Save Departments')
 departmentsfile = f'../../data/csv/web_departments.csv'
 query = r"""select id, departmentname from department;"""
 departments = pd.read_sql(query, read_con)
 departments['departmentname'] = departments['departmentname'].map(lambda x: fix_string(x))
 departments.to_csv(departmentsfile, header=True, index=False)
+
+print('Save Brand Codes')
+brandsfile = f'../../data/csv/web_brands.csv'
+query = r"""select brandcode, brandname from brandcode;"""
+brands = pd.read_sql(query, read_con)
+brands['brandname'] = brands['brandname'].map(lambda x: fix_string(x))
+brands.to_csv(brandsfile, header=True, index=False)

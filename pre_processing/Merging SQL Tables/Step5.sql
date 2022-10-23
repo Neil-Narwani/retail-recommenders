@@ -17,8 +17,8 @@ set identity_insert ReasonCode OFF
 go
 set identity_insert Item ON
 go
-insert into Item (ID, "Description", FullPrice)
-	Select HQID, "Description", Price from s501.dbo.Item
+insert into Item (ID, "Description", FullPrice, BrandCode)
+	Select HQID, "Description", Price,BinLocation from s501.dbo.Item
 go
 set identity_insert Item OFF
 go

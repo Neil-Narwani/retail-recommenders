@@ -32,9 +32,10 @@ def recommend():
     if request.method == "POST":
         products=request.json['products']
         idlist = [str(x['id']) for index,x in enumerate(products) if index < 10]
-        pricelist = [float(items_df.loc[items_df['id'] == x['id']]['price'].values[0]) for index,x in enumerate(products) if index < 10]
+        # pricelist = [float(items_df.loc[items_df['id'] == x['id']]['price'].values[0]) for index,x in enumerate(products) if index < 10]
         departmentlist = [int(items_df.loc[items_df['id'] == x['id']]['department_id'].values[0]) for index,x in enumerate(products) if index < 10]
-        recommends_list = model.Predict(idlist,pricelist,departmentlist)
+        brandlist = [str(items_df.loc[items_df['id'] == x['id']]['brand_code'].values[0]) for index,x in enumerate(products) if index < 10]
+        recommends_list = model.Predict(idlist,departmentlist, brandlist)
 
         results = '''<h2> Recommendations :  </h2>
         <table class="table" id="recommendationTable">

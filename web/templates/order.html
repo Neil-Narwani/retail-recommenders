@@ -71,22 +71,23 @@
           // return false, from this function 
           // if precondition of checking out is invalid
           // if(!willProceedToCheckout) return false;
-          var checkoutString = "Total Price: " + totalPrice + "\nTotal Quantity: " + totalQuantity;
-          checkoutString += "\n\n id \t name \t summary \t price \t quantity \t image path";
-          $.ajax({
-            type: "POST",
-            contentType: "application/json; charset=utf-8",
-            url: "/",
-            data: JSON.stringify({products: products}),
-            success: function (data) {
-                window.location.href = data['redirect'];
-            },
-            dataType: "json"
-          });
+          // var checkoutString = "Total Price: " + totalPrice + "\nTotal Quantity: " + totalQuantity;
+          // checkoutString += "\n\n id \t name \t summary \t price \t quantity \t image path";
+          // $.ajax({
+          //   type: "POST",
+          //   contentType: "application/json; charset=utf-8",
+          //   url: "/",
+          //   data: JSON.stringify({products: products}),
+          //   success: function (data) {
+          //       window.location.href = data['redirect'];
+          //   },
+          //   dataType: "json"
+          // });
 
-          $.each(products, function(){
-            checkoutString += ("\n " + this.id + " \t " + this.name + " \t " + this.summary + " \t " + this.price + " \t " + this.quantity + " \t " + this.image);
-          });
+          // $.each(products, function(){
+          //   checkoutString += ("\n " + this.id + " \t " + this.name + " \t " + this.summary + " \t " + this.price + " \t " + this.quantity + " \t " + this.image);
+          // });
+          return true;
         },
         getDiscountPrice: function(products, totalPrice, totalQuantity) {
           return totalPrice * 0.5;
@@ -119,10 +120,10 @@
   <tbody>
     {% for index, row in items.iterrows(): %}
     <tr>
-      <td>{{ row[4] }}</td>
-      <td>{{ row[2] }}</td>
-      <td>{{ "$%.2f"|format(row[3])  }}</td>
-      <td><button class="btn btn-danger my-cart-btn" data-id="{{row[0]}}" data-name="{{row[2]}}" data-summary="{{row[2]}}" data-price="{{row[3]}}" 
+      <td>{{ row[5] }}</td>
+      <td>{{ row[3] }}</td>
+      <td>{{ "$%.2f"|format(row[4])  }}</td>
+      <td><button class="btn btn-danger my-cart-btn" data-id="{{row[0]}}" data-name="{{row[3]}}" data-summary="{{row[3]}}" data-price="{{row[4]}}" 
         data-quantity="1" data-image="{{url_for('static', filename='img/add.png')}}">Add to Test</button></td>
     </tr>
     {% endfor %}

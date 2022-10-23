@@ -10,20 +10,19 @@ from datetime import datetime
 import random
 import os
 from fixstring import fix_string
+import json
 
-output_dir = '../../data/samples'
-min_timeline_length = 3
-max_context_length = 10
-data_fractions = [ 0.7, 0.2, 0.1 ] 
+
 OUTPUT_TRAINING_DATA_FILENAME = "train_transactions.tfrecord"
 OUTPUT_TESTING_DATA_FILENAME = "test_transactions.tfrecord"
+OUTPUT_VALIDATION_FILENAME = "validation_transactions.tfrecord"
 OUTPUT_ITEMDATA_FILENAME = "items.tfrecord"
 OUTPUT_DEPT_FILENAME= "departments.tfrecord"
-OUTPUT_VALIDATION_FILENAME = "validation_transactions.tfrecord"
+OUTPUT_BRANDCODE_FILENAME= "brandcodes.tfrecord"
 
 class TransactionInfo(
     collections.namedtuple("TransactionInfo", 
-    ["item_id", "timestamp", "quantity", "price", "department_id", "discount_id", "return_id"])):
+    ["item_id", "timestamp", "quantity", "price", "department_id", "discount_id", "return_id", "brand_code"])):
   """Data holder of basic information of an transaction."""
   __slots__ = ()
 
@@ -32,9 +31,9 @@ class TransactionInfo(
               timestamp=0, 
               quantity=0.0,
               price = 0.0,
-              department_id = 0, discount_id=0, return_id=0):
+              department_id = 0, discount_id=0, return_id=0, brand_code=''):
     return super(TransactionInfo, cls).__new__(cls, item_id, timestamp, quantity,
-                                         price, department_id,discount_id,return_id)
+                                         price, department_id,discount_id,return_id, brand_code)
 
 class ItemInfo(collections.namedtuple("ItemInfo", ["item_id", "description", "fullprice"])):
   """Data holder of basic item information"""
@@ -50,6 +49,14 @@ class DepartmentInfo(collections.namedtuple("DepartmentInfo", ["dept_id", "dept_
   def __new__(cls, dept_id=0, dept_name=''):
     return super(DepartmentInfo, cls).__new__(cls, dept_id, dept_name)
 
+class BrandInfo(collections.namedtuple("BrandInfo", ["brand_code", "brand_name"])):
+  """Data holder of basic department information"""
+  __slots__ = ()
+
+  def __new__(cls, brand_code='', brand_name=''):
+    return super(DepartmentInfo, cls).__new__(cls, brand_code, brand_name)
+
+
 def read_data(sqlconn, startdate): 
     print('Load duplicate customer map')
     entity_map_query = r"""
@@ -57,10 +64,10 @@ def read_data(sqlconn, startdate):
     entity_map_df = pd.read_sql(entity_map_query, sqlconn)
     print('query transactions...')
     query = f"""
-      select 
-        transactionentry.ID,CustomerID, ItemID, TransactionTime, Quantity, Price, 
-        FullPrice, DepartmentID, DiscountID, ReturnID
-      from transactionentry 
+      select  transactionentry.ID,CustomerID, ItemID, transactionentry.TransactionTime, Quantity, transactionentry.Price, transactionentry.FullPrice,
+        DepartmentID, DiscountID, ReturnID, BinLocation as BrandCode
+      from transactionentry
+      left join item on transactionentry.itemid = item.id
       where TransactionTime > '{startdate}';
       """
     transactions_df = pd.read_sql(query, sqlconn)
@@ -73,22 +80,28 @@ def read_data(sqlconn, startdate):
     transactions_df.drop('CanonID', inplace=True, axis=1)
     print('Query items')
     items_df = pd.read_sql(f"""
-      select item.ID as ID, Description, FullPrice 
+      select item.ID as id, description, price 
         from Item 
-        where item.ID in (select distinct ItemID from transactionentry where TransactionTime > '{startdate}') limit 25000;""", sqlconn)
+        where item.ID in (select distinct ItemID from transactionentry where TransactionTime > '{startdate}') limit 25000;
+    """, sqlconn)
+    print('Query Departments')
     department_df = pd.read_sql("""
       select id, departmentname from department;
     """, sqlconn)
-    return transactions_df, items_df, department_df
+    print('Query Brand Codes')
+    brand_df = pd.read_sql("""
+      select brandcode, brandname from brandcode;
+    """, sqlconn)
+    return transactions_df, items_df, department_df, brand_df
 
 
 def convert_to_timelines(transactions_df):
   """Covert to purchase histories."""
   timelines = collections.defaultdict(list)
   item_counts = collections.Counter()
-  for ID,CustomerID, ItemID, Quantity, Price, FullPrice, DepartmentID, DiscountID, ReturnID, Timestamp in transactions_df.values:
+  for ID,CustomerID, ItemID, Quantity, Price, FullPrice, DepartmentID, DiscountID, ReturnID, BrandCode, Timestamp in transactions_df.values:
     timelines[CustomerID].append(
-        TransactionInfo(item_id=ItemID, timestamp=Timestamp, quantity=Quantity, price=Price, department_id=int(DepartmentID), discount_id=int(DiscountID), return_id=int(ReturnID)))
+        TransactionInfo(item_id=ItemID, timestamp=Timestamp, quantity=Quantity, price=Price, department_id=int(DepartmentID), discount_id=int(DiscountID), return_id=int(ReturnID), brand_code=BrandCode))
     item_counts[ItemID] += 1
   # Sort per-user timeline by timestamp
   for (user_id, context) in timelines.items():
@@ -96,14 +109,6 @@ def convert_to_timelines(transactions_df):
     timelines[user_id] = context
   return timelines, item_counts
 
-def generate_items_dict(items_df):
-  """Generates movies dictionary from movies dataframe."""
-  items_dict = {
-      ID: ItemInfo(item_id=ID, description=Description, fullprice=FullPrice)
-      for ID, Description, FullPrice in items_df.values
-  }
-  items_dict[0] = ItemInfo()
-  return items_dict
 
 def generate_examples_from_single_timeline(timeline,
                                            max_context_len=100):
@@ -138,6 +143,7 @@ def generate_examples_from_single_timeline(timeline,
     context_item_department = [item.department_id for item in context]
     context_discount_id = [item.discount_id for item in context]
     context_return_id=[item.return_id for item in context]
+    context_brand_code=[tf.compat.as_bytes(str(item.brand_code)) for item in context]
     context_item_quantity=[item.quantity for item in context]
     feature = {
         "context_item_id":
@@ -158,6 +164,9 @@ def generate_examples_from_single_timeline(timeline,
         "context_return_id":
             tf.train.Feature(
                 int64_list=tf.train.Int64List(value=context_return_id)),
+        "context_brand_code": 
+            tf.train.Feature(
+                bytes_list=tf.train.BytesList(value=context_brand_code)),
         "label_item_id":
             tf.train.Feature(
                 int64_list=tf.train.Int64List(value=[label_item_id]))
@@ -167,11 +176,12 @@ def generate_examples_from_single_timeline(timeline,
 
   return examples
 
-def generate_item_vocab(items_dict):
+def generate_item_vocab(items_df):
     items = []
-    for itemid in items_dict.keys():
-      description = tf.compat.as_bytes(fix_string(items_dict[itemid].description))
-      fullprice = items_dict[itemid].fullprice
+    for _, item in items_df.iterrows():
+      description = tf.compat.as_bytes(fix_string(item['description']))
+      fullprice = item['price']
+      itemid = item['id']
       feature = {
           "item_id":
               tf.train.Feature(
@@ -198,6 +208,19 @@ def generate_dept_vocab(department_df):
     tf_example = tf.train.Example(features=tf.train.Features(feature=feature))
     departments.append(tf_example)
   return departments
+
+def generate_brand_vocab(brand_df):
+  brands = []
+  for _, brand in brand_df.iterrows():
+    brand_name = tf.compat.as_bytes(fix_string(brand['brandname']))
+    brand_code = tf.compat.as_bytes(brand['brandcode'])
+    feature = {
+      "brand_code" : tf.train.Feature(bytes_list=tf.train.BytesList(value=[brand_code])),
+      "brand_name": tf.train.Feature(bytes_list=tf.train.BytesList(value=[brand_name]))
+    }
+    tf_example = tf.train.Example(features=tf.train.Features(feature=feature))
+    brands.append(tf_example)
+  return brands
 
 def generate_examples_from_timelines(timelines,
                                      min_timeline_len=3,
@@ -273,18 +296,18 @@ def generate_datasets(sqlconn,
                       test_filename=OUTPUT_TESTING_DATA_FILENAME,
                       items_filename=OUTPUT_ITEMDATA_FILENAME,
                       validation_filename=OUTPUT_VALIDATION_FILENAME,
-                      dept_filename=OUTPUT_DEPT_FILENAME):
+                      dept_filename=OUTPUT_DEPT_FILENAME, brand_filename=OUTPUT_BRANDCODE_FILENAME):
   """Generates train and test datasets as TFRecord, and returns stats."""
   print("Reading data to dataframes.")
-  transactions_df, items_df, department_df = read_data(sqlconn,start_date)
+  transactions_df, items_df, department_df, brand_df = read_data(sqlconn,start_date)
   print("Generating customer purchase histories.")
   timelines, item_counts = convert_to_timelines(transactions_df)
   print("Generating train and test examples.")
   train_examples, test_examples, validation_examples = generate_examples_from_timelines(
-      timelines=timelines,
-      min_timeline_len=min_timeline_length,
-      max_context_len=max_context_length,
-      train_data_fractions=train_data_fractions)
+     timelines=timelines,
+     min_timeline_len=min_timeline_length,
+     max_context_len=max_context_length,
+     train_data_fractions=train_data_fractions)
 
   if not tf.io.gfile.exists(output_dir):
     tf.io.gfile.makedirs(output_dir)
@@ -296,44 +319,48 @@ def generate_datasets(sqlconn,
   test_size = write_tfrecords(tf_examples=test_examples, filename=test_file)
   print("Writing generated validation examples.")
   validation_file = os.path.join(output_dir, validation_filename)
+  validation_size = 0
   validation_size = write_tfrecords(tf_examples=validation_examples, filename=validation_file)
 
   items_file = None
   items_size = None
   dept_file = None
   dept_size = None
-
+  brand_size = None
   if genauxdata:
     print('Generating Item data')
-    items_dict = generate_items_dict(items_df)
-    items_set = generate_item_vocab(items_dict=items_dict)
+    items_vocab = generate_item_vocab(items_df=items_df)
     print('Genrating Department data')
-    dept_examples = generate_dept_vocab(department_df=department_df)
+    dept_vocab = generate_dept_vocab(department_df=department_df)
+    print('Generating Brand data')
+    brand_vocab = generate_brand_vocab(brand_df=brand_df)
     print("Writing Item Data")
     items_file = os.path.join(output_dir, items_filename)
-    items_size = write_tfrecords(tf_examples=items_set, filename=items_file)
+    items_size = write_tfrecords(tf_examples=items_vocab, filename=items_file)
     print("Writing Department Data")
     dept_file = os.path.join(output_dir, dept_filename)
-    dept_size = write_tfrecords(tf_examples=dept_examples,filename=dept_file)
+    dept_size = write_tfrecords(tf_examples=dept_vocab,filename=dept_file)
+    print("Writing Brand Data")
+    brand_file = os.path.join(output_dir, brand_filename)
+    brand_size = write_tfrecords(tf_examples=brand_vocab,filename=brand_file)
 
   stats = {
-      "train_size": train_size,
-      "test_size": test_size,
-      "train_file": train_file,
-      "test_file": test_file,
-      "validation_file": validation_file,
-      "validation_size": validation_size,
-      "item_size": items_size,
-      "item_file": items_file,
-      "dept_file": dept_file,
-      "dept_size": dept_size
+      train_file: train_size,
+      test_file: test_size,
+      validation_file: validation_size,
+      items_file: items_size,
+      dept_file: dept_size,
+      brand_file: brand_size
   }
   return stats
 
 
 
 if __name__ == "__main__":
-
+  output_dir = '../../data/samples'
+  min_timeline_length = 3
+  max_context_length = 10
+  data_fractions = [ 0.75, 0.2, 0.05 ] 
   parser = argparse.ArgumentParser(description='Extract customer and transaction data from mySQL db')
   parser.add_argument('--server', help='Address of mySQL server (default=localhost)', default='localhost')
   parser.add_argument('--username', help='Username to access server (default=sa)', default='sa')
@@ -364,5 +391,6 @@ if __name__ == "__main__":
       start_date=str(args.startdate),
       genauxdata=args.nogenvocabs
   )
-  print(f"Generated dataset: {stats}")
+  print(f"Generated dataset stats:")
+  print(json.dumps(stats, indent=4))
 
